@@ -1,0 +1,54 @@
+# Simple example of CI to build a Docker container and push it to Amazon ECR
+# uses docker with buildx to build for arm64
+variables:
+  DOCKER_REGISTRY: 991454935152.dkr.ecr.us-east-1.amazonaws.com
+  AWS_DEFAULT_REGION: us-east-1
+  FORECAST_DB_INGEST_APP_NAME: swiftweather-forecast-db-ingest
+  DIRECTIONS_APP_NAME: swiftweather-directions
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  BUILD_FORECAST_DB_INGEST_CONTAINER: "false"
+  BUILD_DIRECTIONS_CONTAINER: "false"
+
+build-push-image:
+  stage: build
+  image: 
+    name: jdrouet/docker-with-buildx:stable
+  services:
+    - docker:19-dind
+  before_script:
+    - apk add --no-cache curl jq python3 py3-pip
+    - pip install awscli
+    - aws ecr get-login-password | docker login --username AWS --password-stdin $DOCKER_REGISTRY
+    - aws --version
+    - docker info
+    - docker --version
+  script:
+    - cd ingest
+    - docker build --tag $DOCKER_REGISTRY/$FORECAST_DB_INGEST_APP_NAME:$CI_PIPELINE_IID .
+    - docker image push $DOCKER_REGISTRY/$FORECAST_DB_INGEST_APP_NAME:$CI_PIPELINE_IID
+  only:
+    variables:
+      - $BUILD_FORECAST_DB_INGEST_CONTAINER == "true"
+
+build-push-directions-image:
+  stage: build
+  image: 
+    name: jdrouet/docker-with-buildx:stable
+  services:
+    - docker:19-dind
+  before_script:
+    - apk add --no-cache curl jq python3 py3-pip
+    - pip install awscli
+    - aws ecr get-login-password | docker login --username AWS --password-stdin $DOCKER_REGISTRY
+    - aws --version
+    - docker info
+    - docker --version
+  script:
+    - cd ingest
+    - docker build --tag $DOCKER_REGISTRY/$DIRECTIONS_APP_NAME:$CI_PIPELINE_IID .
+    - docker image push $DOCKER_REGISTRY/$DIRECTIONS_APP_NAME:$CI_PIPELINE_IID
+  only:
+    variables:
+      - $BUILD_DIRECTIONS_CONTAINER == "true"
